@@ -2,22 +2,32 @@
 #define _TASKSYS_H
 
 #include "itasksys.h"
+#include <thread>
+#include <atomic>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 /*
  * TaskSystemSerial: This class is the student's implementation of a
  * serial task execution engine.  See definition of ITaskSystem in
  * itasksys.h for documentation of the ITaskSystem interface.
  */
-class TaskSystemSerial: public ITaskSystem {
-    public:
-        TaskSystemSerial(int num_threads);
-        ~TaskSystemSerial();
-        const char* name();
-        void run(IRunnable* runnable, int num_total_tasks);
-        TaskID runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
-                                const std::vector<TaskID>& deps);
-        void sync();
+class TaskSystemSerial : public ITaskSystem {
+public:
+	explicit TaskSystemSerial(int num_threads);
+
+	~TaskSystemSerial() override;
+
+	const char *name() override;
+
+	void run(IRunnable *runnable, int num_total_tasks) override;
+
+	TaskID runAsyncWithDeps(IRunnable *runnable, int num_total_tasks, const std::vector<TaskID> &deps) override;
+
+	void sync() override;
 };
+
 
 /*
  * TaskSystemParallelSpawn: This class is the student's implementation of a
@@ -25,16 +35,24 @@ class TaskSystemSerial: public ITaskSystem {
  * call.  See definition of ITaskSystem in itasksys.h for documentation
  * of the ITaskSystem interface.
  */
-class TaskSystemParallelSpawn: public ITaskSystem {
-    public:
-        TaskSystemParallelSpawn(int num_threads);
-        ~TaskSystemParallelSpawn();
-        const char* name();
-        void run(IRunnable* runnable, int num_total_tasks);
-        TaskID runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
-                                const std::vector<TaskID>& deps);
-        void sync();
+class TaskSystemParallelSpawn : public ITaskSystem {
+public:
+	explicit TaskSystemParallelSpawn(int num_threads);
+
+	~TaskSystemParallelSpawn() override;
+
+	const char *name() override;
+
+	void run(IRunnable *runnable, int num_total_tasks) override;
+
+	TaskID runAsyncWithDeps(IRunnable *runnable, int num_total_tasks, const std::vector<TaskID> &deps) override;
+
+	void sync() override;
+
+private:
+	int numOfThread;
 };
+
 
 /*
  * TaskSystemParallelThreadPoolSpinning: This class is the student's
@@ -42,16 +60,32 @@ class TaskSystemParallelSpawn: public ITaskSystem {
  * thread pool. See definition of ITaskSystem in itasksys.h for
  * documentation of the ITaskSystem interface.
  */
-class TaskSystemParallelThreadPoolSpinning: public ITaskSystem {
-    public:
-        TaskSystemParallelThreadPoolSpinning(int num_threads);
-        ~TaskSystemParallelThreadPoolSpinning();
-        const char* name();
-        void run(IRunnable* runnable, int num_total_tasks);
-        TaskID runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
-                                const std::vector<TaskID>& deps);
-        void sync();
+class TaskSystemParallelThreadPoolSpinning : public ITaskSystem {
+public:
+	explicit TaskSystemParallelThreadPoolSpinning(int num_threads);
+
+	~TaskSystemParallelThreadPoolSpinning() override;
+
+	const char *name() override;
+
+	void run(IRunnable *runnable, int num_total_tasks) override;
+
+	TaskID runAsyncWithDeps(IRunnable *runnable, int num_total_tasks, const std::vector<TaskID> &deps) override;
+
+	void sync() override;
+
+private:
+	std::vector<std::thread> threads;
+	std::mutex queueMutex;
+	std::atomic<int> taskRemained{};
+	std::queue<int> taskQueue;
+	IRunnable *myRunnable{};
+	bool exitFlag;
+	int numTotalTasks{};
+
+	void func();
 };
+
 
 /*
  * TaskSystemParallelThreadPoolSleeping: This class is the student's
@@ -59,15 +93,32 @@ class TaskSystemParallelThreadPoolSpinning: public ITaskSystem {
  * a thread pool. See definition of ITaskSystem in
  * itasksys.h for documentation of the ITaskSystem interface.
  */
-class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
-    public:
-        TaskSystemParallelThreadPoolSleeping(int num_threads);
-        ~TaskSystemParallelThreadPoolSleeping();
-        const char* name();
-        void run(IRunnable* runnable, int num_total_tasks);
-        TaskID runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
-                                const std::vector<TaskID>& deps);
-        void sync();
+class TaskSystemParallelThreadPoolSleeping : public ITaskSystem {
+public:
+	explicit TaskSystemParallelThreadPoolSleeping(int num_threads);
+
+	~TaskSystemParallelThreadPoolSleeping() override;
+
+	const char *name() override;
+
+	void run(IRunnable *runnable, int num_total_tasks) override;
+
+	TaskID runAsyncWithDeps(IRunnable *runnable, int num_total_tasks, const std::vector<TaskID> &deps) override;
+
+	void sync() override;
+
+private:
+	std::vector<std::thread> threads;
+	std::mutex counterLock;
+	std::condition_variable counterCond;
+	std::mutex queueMutex;
+	std::condition_variable queueCond;
+	std::queue<int> taskQueue{};
+	IRunnable *myRunnable{};
+	std::atomic<int> taskRemained{};
+	int numTotalTasks{};
+	bool exitFlag;
+	void func();
 };
 
 #endif
