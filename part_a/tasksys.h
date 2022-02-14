@@ -115,7 +115,7 @@ private:
 	std::condition_variable queueCond;
 	std::queue<int> taskQueue{};
 	IRunnable *myRunnable{};
-	std::atomic<int> taskRemained{};
+	int taskRemained{};
 	int numTotalTasks{};
 	bool exitFlag;
 	void func();

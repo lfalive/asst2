@@ -145,7 +145,6 @@ void TaskSystemParallelThreadPoolSleeping::func() {
 	RunnableTask *task;
 	TaskGroup *taskBelongTo;
 	while (true) {
-		queueCond.notify_all();
 		while (true) {
 			std::unique_lock<std::mutex> lock(queueMutex);
 			queueCond.wait(lock, [] { return true; });
@@ -161,7 +160,7 @@ void TaskSystemParallelThreadPoolSleeping::func() {
 		if (taskBelongTo->taskRemained <= 0) {
 			for (auto taskGroup: taskGroupSet) { taskGroup->depending.erase(taskBelongTo->groupId); }
 			counterCond.notify_one();
-		}
+		} else queueCond.notify_all();
 	}
 }
 
@@ -195,13 +194,13 @@ void TaskSystemParallelThreadPoolSleeping::sync() {
 	while (!taskGroupQueue.empty()) {
 		nowTaskGroup = taskGroupQueue.top();
 		if (!nowTaskGroup->depending.empty()) continue;
+		queueMutex.lock();
 		for (int i = 0; i < nowTaskGroup->numTotalTasks; i++) {
 			nowRunnableTask = new RunnableTask(nowTaskGroup, i);
-			queueMutex.lock();
 			taskQueue.push(nowRunnableTask);
-			queueMutex.unlock();
-			queueCond.notify_all();
 		}
+		queueMutex.unlock();
+		queueCond.notify_all();
 		taskGroupQueue.pop();
 	}
 	while (true) {

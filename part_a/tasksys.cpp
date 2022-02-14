@@ -169,11 +169,6 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
 void TaskSystemParallelThreadPoolSleeping::func() {
 	int taskId;
 	while (true) {
-		/*
-		 * 如果所有线程都在work的时候有新task入队（尤其是最后一个task入队时），则工作线程都没有收到唤醒信号
-		 * 避免这种情况，每次有线程完成任务，就唤醒其他所有等待的线程去检查队列有无task
-		 */
-		queueCond.notify_all();
 		while (true) {
 			std::unique_lock<std::mutex> lock(queueMutex);
 			queueCond.wait(lock, [] { return true; });
@@ -184,8 +179,10 @@ void TaskSystemParallelThreadPoolSleeping::func() {
 			break;
 		}
 		myRunnable->runTask(taskId, numTotalTasks);
+		std::unique_lock<std::mutex> lock(counterLock);
 		taskRemained--;
-		counterCond.notify_one();
+		if (taskRemained) queueCond.notify_all();
+		else counterCond.notify_one();
 	}
 }
 
@@ -198,12 +195,10 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable *runnable, int num_tota
 	myRunnable = runnable;
 	taskRemained = num_total_tasks;
 	numTotalTasks = num_total_tasks;
-	for (int i = 0; i < num_total_tasks; i++) {
-		queueMutex.lock();
-		taskQueue.push(i);
-		queueMutex.unlock();
-		queueCond.notify_all();
-	}
+	queueMutex.lock();
+	for (int i = 0; i < num_total_tasks; i++) { taskQueue.push(i); }
+	queueMutex.unlock();
+	queueCond.notify_all();
 	while (true) {
 		std::unique_lock<std::mutex> lock(counterLock);
 		counterCond.wait(lock, [] { return true; });
